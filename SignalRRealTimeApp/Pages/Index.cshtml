@@ -1,0 +1,54 @@
+﻿@page
+<h2>SignalR Chat Demo - Day 1</h2>
+
+<div>
+    <input id="userInput" placeholder="Your name" />
+    <input id="messageInput" placeholder="Write your message" />
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<ul id="messagesList"></ul>
+
+<!-- SignalR JavaScript Client -->
+<script src="~/js/signalr/dist/browser/signalr.js"></script>
+
+<script>
+    // Define connection variable before use
+    let connection;
+
+    async function startConnection() {
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .build();
+
+        connection.on("ReceiveMessage", (user, message) => {
+            const li = document.createElement("li");
+            li.textContent = `${user}: ${message}`;
+            document.getElementById("messagesList").appendChild(li);
+        });
+
+        try {
+            await connection.start();
+            console.log("SignalR connected successfully.");
+        } catch (err) {
+            console.error("SignalR connection error:", err);
+        }
+    }
+
+    async function sendMessage() {
+        const user = document.getElementById("userInput").value || "Anonymous";
+        const message = document.getElementById("messageInput").value;
+
+        if (message && connection) {
+            try {
+                await connection.invoke("SendMessage", user, message);
+                document.getElementById("messageInput").value = "";
+            } catch (err) {
+                console.error("Error sending message:", err);
+            }
+        }
+    }
+
+    // Start connection after page load
+    window.onload = startConnection;
+</script>
