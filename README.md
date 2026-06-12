@@ -55,3 +55,9 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * `invoke` with return values
 * Streaming support
 * Professional error handling
+
+### Day 8
+
+* Advanced authorization using Roles
+* Admin user seeding
+* Client-side error fixes (sendAdminAnnouncement + connection handling)

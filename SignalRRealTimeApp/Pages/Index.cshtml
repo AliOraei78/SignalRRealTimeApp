@@ -1,8 +1,9 @@
 ﻿@page
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
 
-<h2>SignalR Chat Demo - Day 7 (Advanced JavaScript Client)</h2>
+<h2>SignalR Chat Demo - Day 8 (Advanced Authorization)</h2>
 
 @if (SignInManager.IsSignedIn(User))
 {
@@ -15,19 +16,18 @@ else
 
 <div>
     <strong>Connection Status:</strong>
-    <span id="connectionStatus" style="font-weight:bold;">Connecting...</span>
+    <span id="connectionStatus" style="font-weight:bold; color:orange;">Connecting...</span>
 </div>
 
 <div>
     <input id="messageInput" placeholder="Type your message" />
     <button onclick="sendMessage()">Send to everyone</button>
-    <button onclick="echoMessage()">Echo message (Return Value)</button>
-    <button onclick="startStreaming()">Start Streaming</button>
+    <button onclick="sendToUser()">Send private message</button>
+    <button onclick="sendAdminAnnouncement()">Admin announcement (Admin only)</button>
 </div>
 
 <div>
     <input id="targetUser" placeholder="Target username" />
-    <button onclick="sendToUser()">Send private message</button>
 </div>
 
 <h3>Messages:</h3>
@@ -36,66 +36,39 @@ else
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
 <script>
     let connection;
-    let isConnected = false;
 
     async function startConnection() {
     const status = document.getElementById("connectionStatus");
 
     connection = new signalR.HubConnectionBuilder()
     .withUrl("/chatHub")
-    // Advanced reconnection configuration
-    .withAutomaticReconnect({
-    nextRetryDelayInMilliseconds: retryContext => {
-    if (retryContext.previousRetryCount < 3) return 1000;   // 1s
-    if (retryContext.previousRetryCount < 6) return 3000;   // 3s
-    return 5000; // 5s
-    }
-    })
+    .withAutomaticReconnect()
     .build();
 
-    // Connection lifecycle handlers
-    connection.onreconnecting(error => {
-    status.textContent = "Reconnecting...";
-    status.style.color = "orange";
-    console.warn("Reconnecting...", error);
-    });
+    connection.on("ReceiveMessage", (user, message) =>
+    addMessage(`${user}: ${message}`, "blue")
+    );
 
-    connection.onreconnected(connectionId => {
-    status.textContent = "Reconnected";
-    status.style.color = "green";
-    addMessage(`✅ Reconnected. ConnectionId: ${connectionId}`, "green");
-    });
+    connection.on("ReceivePrivateMessage", (sender, message) =>
+    addMessage(`📩 from ${sender}: ${message}`, "green")
+    );
 
-    connection.onclose(error => {
-    status.textContent = "Disconnected";
-    status.style.color = "red";
-    addMessage("❌ Connection permanently closed.", "red");
-    console.error("Connection closed", error);
-    });
+    connection.on("ReceiveSystemMessage", (user, message) =>
+    addMessage(`[${user}] ${message}`, "red")
+    );
 
-    // Message handlers
-    connection.on("ReceiveMessage", (user, message) => {
-    addMessage(`${user}: ${message}`, "blue");
-    });
+    connection.on("UserConnected", (userName) =>
+    addMessage(`✅ ${userName} joined`, "green")
+    );
 
-    connection.on("ReceivePrivateMessage", (sender, message) => {
-    addMessage(`📩 from ${sender}: ${message}`, "green");
-    });
-
-    connection.on("UserConnected", (userName) => {
-    addMessage(`✅ ${userName} joined`, "green");
-    });
-
-    connection.on("UserDisconnected", (userName) => {
-    addMessage(`❌ ${userName} left`, "red");
-    });
+    connection.on("UserDisconnected", (userName) =>
+    addMessage(`❌ ${userName} left`, "red")
+    );
 
     try {
     await connection.start();
-    isConnected = true;
     status.textContent = "Connected";
     status.style.color = "green";
-    console.log("SignalR Client Started Successfully");
     } catch (err) {
     console.error("Connection Error:", err);
     status.textContent = "Connection failed";
@@ -110,59 +83,36 @@ else
     document.getElementById("messagesList").appendChild(li);
     }
 
-    // Send normal message
     async function sendMessage() {
     const message = document.getElementById("messageInput").value;
-    if (!message || !connection) return;
-
-    try {
+    if (message && connection) {
     await connection.invoke("SendMessage", message);
     document.getElementById("messageInput").value = "";
-    } catch (err) {
-    console.error("Send Error:", err);
     }
     }
 
-    // Test return value
-    async function echoMessage() {
-    const message = document.getElementById("messageInput").value;
-    if (!message || !connection) return;
-
-    try {
-    const result = await connection.invoke("EchoMessage", message);
-    addMessage(`🔄 ${result}`, "purple");
-    document.getElementById("messageInput").value = "";
-    } catch (err) {
-    console.error("Echo Error:", err);
-    }
-    }
-
-    // Test streaming
-    async function startStreaming() {
-    if (!connection) return;
-
-    try {
-    const stream = connection.stream("StreamMessages", 5);
-    for await (const item of stream) {
-    addMessage(`📡 ${item}`, "orange");
-    }
-    } catch (err) {
-    console.error("Streaming Error:", err);
-    }
-    }
-
-    // Send private message
     async function sendToUser() {
     const target = document.getElementById("targetUser").value;
     const message = document.getElementById("messageInput").value;
 
-    if (!target || !message || !connection) return;
-
-    try {
+    if (target && message && connection) {
     await connection.invoke("SendToUser", target, message);
     document.getElementById("messageInput").value = "";
+    }
+    }
+
+    // New admin announcement function
+    async function sendAdminAnnouncement() {
+    const message = document.getElementById("messageInput").value || "Important announcement!";
+
+    if (!connection) return;
+
+    try {
+    await connection.invoke("SendAdminAnnouncement", message);
+    document.getElementById("messageInput").value = "";
     } catch (err) {
-    console.error(err);
+    console.error("Admin Announcement Error:", err);
+    alert("Error: Only admin users are allowed to send announcements.");
     }
     }
 

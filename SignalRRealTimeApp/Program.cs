@@ -19,10 +19,15 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequiredLength = 6;
 })
+.AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+});
 
 var app = builder.Build();
 
@@ -42,6 +47,42 @@ app.UseAuthorization();
 
 app.MapRazorPages();
 app.MapHub<ChatHub>("/chatHub");
+
+//using (var scope = app.Services.CreateScope())
+//{
+//    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+//    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+//    string[] roles = { "Admin", "User" };
+//    foreach (var roleName in roles)
+//    {
+//        if (!await roleManager.RoleExistsAsync(roleName))
+//        {
+//            await roleManager.CreateAsync(new IdentityRole(roleName));
+//        }
+//    }
+
+//    var adminEmail = "admin@test.com";
+//    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+//    if (adminUser == null)
+//    {
+//        adminUser = new IdentityUser
+//        {
+//            UserName = adminEmail,
+//            Email = adminEmail,
+//            EmailConfirmed = true
+//        };
+
+//        var result = await userManager.CreateAsync(adminUser, "Admin@123456");
+
+//        if (result.Succeeded)
+//        {
+//            await userManager.AddToRoleAsync(adminUser, "Admin");
+//            Console.WriteLine("✅ کاربر ادمین با موفقیت ایجاد شد!");
+//        }
+//    }
+//}
 
 app.Run();
 

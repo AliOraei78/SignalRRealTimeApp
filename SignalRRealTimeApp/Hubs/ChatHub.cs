@@ -10,10 +10,12 @@ namespace SignalRRealTimeApp.Hubs
     {
         private static readonly ConcurrentDictionary<string, string> ConnectedUsers = new();
         private readonly UserManager<IdentityUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
 
-        public ChatHub(UserManager<IdentityUser> userManager)
+        public ChatHub(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _userManager = userManager;
+            _roleManager = roleManager;
         }
 
         public override async Task OnConnectedAsync()
@@ -39,14 +41,33 @@ namespace SignalRRealTimeApp.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        // Send message to everyone
+        // Method for regular authenticated users
+        [Authorize]
         public async Task SendMessage(string message)
         {
             var user = await _userManager.GetUserAsync(Context.User);
             await Clients.All.ReceiveMessage(user?.UserName ?? "Anonymous", message);
         }
 
-        // Send message to a specific user
+        // Method only for admins
+        [Authorize(Roles = "Admin")]
+        public async Task SendAdminAnnouncement(string message)
+        {
+            var user = await _userManager.GetUserAsync(Context.User);
+            await Clients.All.ReceiveSystemMessage("Admin", $"Important announcement: {message}");
+        }
+
+        // Method protected by policy
+        [Authorize(Policy = "AdminOnly")]
+        public async Task AdminOnlyMethod()
+        {
+            await Clients.Caller.ReceiveSystemMessage(
+                "System",
+                "This method is only accessible to admins."
+            );
+        }
+
+        // Other methods (SendToUser, SendToGroup, EchoMessage, StreamMessages) remain unchanged
         public async Task SendToUser(string targetUserName, string message)
         {
             var targetUser = await _userManager.FindByNameAsync(targetUserName);
