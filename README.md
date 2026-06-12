@@ -27,3 +27,10 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Managed connection lifecycle
 * Displayed online users using `ConcurrentDictionary`
 * Broadcasted user join and leave notifications
+
+### Day 4
+
+* Implemented Groups in SignalR
+* Added `JoinGroup`, `LeaveGroup`, and `SendToGroup` methods
+* Enabled sending messages to specific groups
+* Set default membership to the `General` group

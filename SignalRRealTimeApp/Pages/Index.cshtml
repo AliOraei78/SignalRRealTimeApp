@@ -1,11 +1,19 @@
 ﻿@page
-<h2>SignalR Chat Demo - Day 3 (Connection Management)</h2>
+<h2>SignalR Chat Demo - Day 4 (Groups)</h2>
 
 <div>
     <input id="userInput" placeholder="Your name" value="Test User" />
     <input id="messageInput" placeholder="Type your message" />
-    <button onclick="sendMessage()">Send Message</button>
-    <button onclick="getOnlineUsers()">Online Users</button>
+
+    <button onclick="sendToAll()">Send to All</button>
+    <button onclick="sendToGroup()">Send to Group</button>
+</div>
+
+<div>
+    <strong>Group:</strong>
+    <input id="groupInput" value="General" />
+    <button onclick="joinGroup()">Join Group</button>
+    <button onclick="leaveGroup()">Leave Group</button>
 </div>
 
 <div>
@@ -16,9 +24,9 @@
 <h3>Online Users:</h3>
 <ul id="onlineUsersList"></ul>
 
+<h3>Messages:</h3>
 <ul id="messagesList"></ul>
 
-<!-- SignalR JavaScript Client -->
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
 
 <script>
@@ -29,24 +37,22 @@
     .withUrl("/chatHub")
     .build();
 
-    // Receive chat messages
     connection.on("ReceiveMessage", (user, message) => {
     addMessage(`${user}: ${message}`, "blue");
     });
 
-    // User connected
-    connection.on("UserConnected", (userName, connectionId) => {
+    connection.on("ReceiveSystemMessage", (user, message) => {
+    addMessage(`[${user}] ${message}`, "red");
+    });
+
+    connection.on("UserConnected", (userName) => {
     addMessage(`✅ ${userName} joined.`, "green");
-    refreshOnlineUsers();
     });
 
-    // User disconnected
-    connection.on("UserDisconnected", (userName, connectionId) => {
+    connection.on("UserDisconnected", (userName) => {
     addMessage(`❌ ${userName} left.`, "red");
-    refreshOnlineUsers();
     });
 
-    // Receive online users list
     connection.on("ReceiveOnlineUsers", (users) => {
     const list = document.getElementById("onlineUsersList");
     list.innerHTML = "";
@@ -62,11 +68,9 @@
     await connection.start();
     document.getElementById("connectionStatus").textContent = "Connected";
     document.getElementById("connectionStatus").style.color = "green";
-
-    console.log("SignalR Connected - ID:", connection.connectionId);
     } catch (err) {
     console.error(err);
-    document.getElementById("connectionStatus").textContent = "Connection Failed";
+    document.getElementById("connectionStatus").textContent = "Connection failed";
     document.getElementById("connectionStatus").style.color = "red";
     }
     }
@@ -78,7 +82,7 @@
     document.getElementById("messagesList").appendChild(li);
     }
 
-    async function sendMessage() {
+    async function sendToAll() {
     const user = document.getElementById("userInput").value || "Anonymous";
     const message = document.getElementById("messageInput").value;
 
@@ -88,15 +92,29 @@
     }
     }
 
-    async function getOnlineUsers() {
-    if (connection) {
-    await connection.invoke("GetOnlineUsers");
+    async function joinGroup() {
+    const group = document.getElementById("groupInput").value;
+
+    if (group && connection) {
+    await connection.invoke("JoinGroup", group);
     }
     }
 
-    function refreshOnlineUsers() {
-    if (connection) {
-    getOnlineUsers();
+    async function leaveGroup() {
+    const group = document.getElementById("groupInput").value;
+
+    if (group && connection) {
+    await connection.invoke("LeaveGroup", group);
+    }
+    }
+
+    async function sendToGroup() {
+    const group = document.getElementById("groupInput").value;
+    const message = document.getElementById("messageInput").value;
+
+    if (message && group && connection) {
+    await connection.invoke("SendToGroup", group, message);
+    document.getElementById("messageInput").value = "";
     }
     }
 
