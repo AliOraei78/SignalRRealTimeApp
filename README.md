@@ -20,3 +20,10 @@ A sample SignalR project demonstrating real-time development skills in .NET
   * `Clients.Caller`
   * `Clients.Others`
 * Enhanced the test UI with multiple messaging methods
+
+### Day 3
+
+* Implemented `OnConnectedAsync` and `OnDisconnectedAsync`
+* Managed connection lifecycle
+* Displayed online users using `ConcurrentDictionary`
+* Broadcasted user join and leave notifications

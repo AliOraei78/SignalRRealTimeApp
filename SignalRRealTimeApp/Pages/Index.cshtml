@@ -1,14 +1,20 @@
 ﻿@page
-<h2>SignalR Chat Demo - Day 2 (Hub Basics)</h2>
+<h2>SignalR Chat Demo - Day 3 (Connection Management)</h2>
 
 <div>
     <input id="userInput" placeholder="Your name" value="Test User" />
     <input id="messageInput" placeholder="Type your message" />
-    <button onclick="sendMessage()">Send to Everyone</button>
-    <button onclick="sendToCaller()">Send Only to Me</button>
-    <button onclick="sendToOthers()">Send to Others</button>
-    <button onclick="sendSystemMessage()">System Message</button>
+    <button onclick="sendMessage()">Send Message</button>
+    <button onclick="getOnlineUsers()">Online Users</button>
 </div>
+
+<div>
+    <strong>Connection Status:</strong>
+    <span id="connectionStatus" style="color:orange;">Connecting...</span>
+</div>
+
+<h3>Online Users:</h3>
+<ul id="onlineUsersList"></ul>
 
 <ul id="messagesList"></ul>
 
@@ -23,36 +29,53 @@
     .withUrl("/chatHub")
     .build();
 
-    // Receive public messages
+    // Receive chat messages
     connection.on("ReceiveMessage", (user, message) => {
-    const li = document.createElement("li");
-    li.textContent = `${user}: ${message}`;
-    li.style.color = "blue";
-    document.getElementById("messagesList").appendChild(li);
+    addMessage(`${user}: ${message}`, "blue");
     });
 
-    // Receive private messages
-    connection.on("ReceivePrivateMessage", (message) => {
-    const li = document.createElement("li");
-    li.textContent = message;
-    li.style.color = "green";
-    document.getElementById("messagesList").appendChild(li);
+    // User connected
+    connection.on("UserConnected", (userName, connectionId) => {
+    addMessage(`✅ ${userName} joined.`, "green");
+    refreshOnlineUsers();
     });
 
-    // Receive system messages
-    connection.on("ReceiveSystemMessage", (user, message) => {
+    // User disconnected
+    connection.on("UserDisconnected", (userName, connectionId) => {
+    addMessage(`❌ ${userName} left.`, "red");
+    refreshOnlineUsers();
+    });
+
+    // Receive online users list
+    connection.on("ReceiveOnlineUsers", (users) => {
+    const list = document.getElementById("onlineUsersList");
+    list.innerHTML = "";
+
+    users.forEach(user => {
     const li = document.createElement("li");
-    li.textContent = `[${user}] ${message}`;
-    li.style.color = "red";
-    document.getElementById("messagesList").appendChild(li);
+    li.textContent = user;
+    list.appendChild(li);
+    });
     });
 
     try {
     await connection.start();
-    console.log("SignalR connected successfully.");
+    document.getElementById("connectionStatus").textContent = "Connected";
+    document.getElementById("connectionStatus").style.color = "green";
+
+    console.log("SignalR Connected - ID:", connection.connectionId);
     } catch (err) {
-    console.error("Connection Error:", err);
+    console.error(err);
+    document.getElementById("connectionStatus").textContent = "Connection Failed";
+    document.getElementById("connectionStatus").style.color = "red";
     }
+    }
+
+    function addMessage(text, color) {
+    const li = document.createElement("li");
+    li.textContent = text;
+    li.style.color = color;
+    document.getElementById("messagesList").appendChild(li);
     }
 
     async function sendMessage() {
@@ -65,31 +88,15 @@
     }
     }
 
-    async function sendToCaller() {
-    const message = document.getElementById("messageInput").value;
-
-    if (message && connection) {
-    await connection.invoke("SendToCaller", message);
-    document.getElementById("messageInput").value = "";
+    async function getOnlineUsers() {
+    if (connection) {
+    await connection.invoke("GetOnlineUsers");
     }
     }
 
-    async function sendToOthers() {
-    const user = document.getElementById("userInput").value || "Anonymous";
-    const message = document.getElementById("messageInput").value;
-
-    if (message && connection) {
-    await connection.invoke("SendToOthers", user, message);
-    document.getElementById("messageInput").value = "";
-    }
-    }
-
-    async function sendSystemMessage() {
-    const message = document.getElementById("messageInput").value;
-
-    if (message && connection) {
-    await connection.invoke("BroadcastSystemMessage", message);
-    document.getElementById("messageInput").value = "";
+    function refreshOnlineUsers() {
+    if (connection) {
+    getOnlineUsers();
     }
     }
 
