@@ -2,7 +2,7 @@
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<IdentityUser> SignInManager
 
-<h2>SignalR Chat Demo - Day 6 (Strongly Typed Hub)</h2>
+<h2>SignalR Chat Demo - Day 7 (Advanced JavaScript Client)</h2>
 
 @if (SignInManager.IsSignedIn(User))
 {
@@ -14,27 +14,66 @@ else
 }
 
 <div>
+    <strong>Connection Status:</strong>
+    <span id="connectionStatus" style="font-weight:bold;">Connecting...</span>
+</div>
+
+<div>
     <input id="messageInput" placeholder="Type your message" />
     <button onclick="sendMessage()">Send to everyone</button>
-    <button onclick="sendToUser()">Send to specific user</button>
+    <button onclick="echoMessage()">Echo message (Return Value)</button>
+    <button onclick="startStreaming()">Start Streaming</button>
 </div>
 
 <div>
     <input id="targetUser" placeholder="Target username" />
+    <button onclick="sendToUser()">Send private message</button>
 </div>
 
+<h3>Messages:</h3>
 <ul id="messagesList"></ul>
 
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
 <script>
     let connection;
+    let isConnected = false;
 
     async function startConnection() {
+    const status = document.getElementById("connectionStatus");
+
     connection = new signalR.HubConnectionBuilder()
     .withUrl("/chatHub")
+    // Advanced reconnection configuration
+    .withAutomaticReconnect({
+    nextRetryDelayInMilliseconds: retryContext => {
+    if (retryContext.previousRetryCount < 3) return 1000;   // 1s
+    if (retryContext.previousRetryCount < 6) return 3000;   // 3s
+    return 5000; // 5s
+    }
+    })
     .build();
 
-    // Strongly typed hub methods
+    // Connection lifecycle handlers
+    connection.onreconnecting(error => {
+    status.textContent = "Reconnecting...";
+    status.style.color = "orange";
+    console.warn("Reconnecting...", error);
+    });
+
+    connection.onreconnected(connectionId => {
+    status.textContent = "Reconnected";
+    status.style.color = "green";
+    addMessage(`✅ Reconnected. ConnectionId: ${connectionId}`, "green");
+    });
+
+    connection.onclose(error => {
+    status.textContent = "Disconnected";
+    status.style.color = "red";
+    addMessage("❌ Connection permanently closed.", "red");
+    console.error("Connection closed", error);
+    });
+
+    // Message handlers
     connection.on("ReceiveMessage", (user, message) => {
     addMessage(`${user}: ${message}`, "blue");
     });
@@ -53,27 +92,14 @@ else
 
     try {
     await connection.start();
-    console.log("Strongly typed hub connected");
+    isConnected = true;
+    status.textContent = "Connected";
+    status.style.color = "green";
+    console.log("SignalR Client Started Successfully");
     } catch (err) {
-    console.error(err);
-    }
-    }
-
-    async function sendMessage() {
-    const message = document.getElementById("messageInput").value;
-    if (message && connection) {
-    await connection.invoke("SendMessage", message);
-    document.getElementById("messageInput").value = "";
-    }
-    }
-
-    async function sendToUser() {
-    const target = document.getElementById("targetUser").value;
-    const message = document.getElementById("messageInput").value;
-
-    if (target && message && connection) {
-    await connection.invoke("SendToUser", target, message);
-    document.getElementById("messageInput").value = "";
+    console.error("Connection Error:", err);
+    status.textContent = "Connection failed";
+    status.style.color = "red";
     }
     }
 
@@ -82,6 +108,62 @@ else
     li.textContent = text;
     li.style.color = color;
     document.getElementById("messagesList").appendChild(li);
+    }
+
+    // Send normal message
+    async function sendMessage() {
+    const message = document.getElementById("messageInput").value;
+    if (!message || !connection) return;
+
+    try {
+    await connection.invoke("SendMessage", message);
+    document.getElementById("messageInput").value = "";
+    } catch (err) {
+    console.error("Send Error:", err);
+    }
+    }
+
+    // Test return value
+    async function echoMessage() {
+    const message = document.getElementById("messageInput").value;
+    if (!message || !connection) return;
+
+    try {
+    const result = await connection.invoke("EchoMessage", message);
+    addMessage(`🔄 ${result}`, "purple");
+    document.getElementById("messageInput").value = "";
+    } catch (err) {
+    console.error("Echo Error:", err);
+    }
+    }
+
+    // Test streaming
+    async function startStreaming() {
+    if (!connection) return;
+
+    try {
+    const stream = connection.stream("StreamMessages", 5);
+    for await (const item of stream) {
+    addMessage(`📡 ${item}`, "orange");
+    }
+    } catch (err) {
+    console.error("Streaming Error:", err);
+    }
+    }
+
+    // Send private message
+    async function sendToUser() {
+    const target = document.getElementById("targetUser").value;
+    const message = document.getElementById("messageInput").value;
+
+    if (!target || !message || !connection) return;
+
+    try {
+    await connection.invoke("SendToUser", target, message);
+    document.getElementById("messageInput").value = "";
+    } catch (err) {
+    console.error(err);
+    }
     }
 
     window.onload = startConnection;

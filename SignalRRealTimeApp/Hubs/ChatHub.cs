@@ -71,5 +71,22 @@ namespace SignalRRealTimeApp.Hubs
             var users = ConnectedUsers.Values.ToList();
             await Clients.Caller.ReceiveOnlineUsers(users);
         }
+
+        // New method: return value to the client
+        public async Task<string> EchoMessage(string message)
+        {
+            var user = await _userManager.GetUserAsync(Context.User);
+            return $"Echo from {user?.UserName}: {message}";
+        }
+
+        // New method: Streaming (sending continuous messages)
+        public async IAsyncEnumerable<string> StreamMessages(int count)
+        {
+            for (int i = 1; i <= count; i++)
+            {
+                await Task.Delay(800); // simulated delay
+                yield return $"Message {i} from server (Streaming)";
+            }
+        }
     }
 }
