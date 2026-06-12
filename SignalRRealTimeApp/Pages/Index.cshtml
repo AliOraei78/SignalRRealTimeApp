@@ -1,30 +1,28 @@
 ﻿@page
-<h2>SignalR Chat Demo - Day 4 (Groups)</h2>
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+
+<h2>SignalR Chat Demo - Day 5 (Send to Specific User)</h2>
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <p>Welcome, <strong>@User.Identity?.Name</strong></p>
+}
+else
+{
+    <p>
+        <a href="/Identity/Account/Login">Login</a> |
+        <a href="/Identity/Account/Register">Register</a>
+    </p>
+}
 
 <div>
-    <input id="userInput" placeholder="Your name" value="Test User" />
-    <input id="messageInput" placeholder="Type your message" />
-
+    <input id="targetUser" placeholder="Target username" />
+    <input id="messageInput" placeholder="Message" />
+    <button onclick="sendToUser()">Send to User</button>
     <button onclick="sendToAll()">Send to All</button>
-    <button onclick="sendToGroup()">Send to Group</button>
 </div>
 
-<div>
-    <strong>Group:</strong>
-    <input id="groupInput" value="General" />
-    <button onclick="joinGroup()">Join Group</button>
-    <button onclick="leaveGroup()">Leave Group</button>
-</div>
-
-<div>
-    <strong>Connection Status:</strong>
-    <span id="connectionStatus" style="color:orange;">Connecting...</span>
-</div>
-
-<h3>Online Users:</h3>
-<ul id="onlineUsersList"></ul>
-
-<h3>Messages:</h3>
 <ul id="messagesList"></ul>
 
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
@@ -41,37 +39,33 @@
     addMessage(`${user}: ${message}`, "blue");
     });
 
-    connection.on("ReceiveSystemMessage", (user, message) => {
-    addMessage(`[${user}] ${message}`, "red");
-    });
-
-    connection.on("UserConnected", (userName) => {
-    addMessage(`✅ ${userName} joined.`, "green");
-    });
-
-    connection.on("UserDisconnected", (userName) => {
-    addMessage(`❌ ${userName} left.`, "red");
-    });
-
-    connection.on("ReceiveOnlineUsers", (users) => {
-    const list = document.getElementById("onlineUsersList");
-    list.innerHTML = "";
-
-    users.forEach(user => {
-    const li = document.createElement("li");
-    li.textContent = user;
-    list.appendChild(li);
-    });
+    connection.on("ReceivePrivateMessage", (sender, message) => {
+    addMessage(`📩 From ${sender}: ${message}`, "green");
     });
 
     try {
     await connection.start();
-    document.getElementById("connectionStatus").textContent = "Connected";
-    document.getElementById("connectionStatus").style.color = "green";
     } catch (err) {
     console.error(err);
-    document.getElementById("connectionStatus").textContent = "Connection failed";
-    document.getElementById("connectionStatus").style.color = "red";
+    }
+    }
+
+    async function sendToUser() {
+    const target = document.getElementById("targetUser").value;
+    const message = document.getElementById("messageInput").value;
+
+    if (target && message && connection) {
+    await connection.invoke("SendToUser", target, message);
+    document.getElementById("messageInput").value = "";
+    }
+    }
+
+    async function sendToAll() {
+    const message = document.getElementById("messageInput").value;
+
+    if (message && connection) {
+    await connection.invoke("SendMessage", message);
+    document.getElementById("messageInput").value = "";
     }
     }
 
@@ -80,42 +74,6 @@
     li.textContent = text;
     li.style.color = color;
     document.getElementById("messagesList").appendChild(li);
-    }
-
-    async function sendToAll() {
-    const user = document.getElementById("userInput").value || "Anonymous";
-    const message = document.getElementById("messageInput").value;
-
-    if (message && connection) {
-    await connection.invoke("SendMessage", user, message);
-    document.getElementById("messageInput").value = "";
-    }
-    }
-
-    async function joinGroup() {
-    const group = document.getElementById("groupInput").value;
-
-    if (group && connection) {
-    await connection.invoke("JoinGroup", group);
-    }
-    }
-
-    async function leaveGroup() {
-    const group = document.getElementById("groupInput").value;
-
-    if (group && connection) {
-    await connection.invoke("LeaveGroup", group);
-    }
-    }
-
-    async function sendToGroup() {
-    const group = document.getElementById("groupInput").value;
-    const message = document.getElementById("messageInput").value;
-
-    if (message && group && connection) {
-    await connection.invoke("SendToGroup", group, message);
-    document.getElementById("messageInput").value = "";
-    }
     }
 
     window.onload = startConnection;

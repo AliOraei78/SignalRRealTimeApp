@@ -34,3 +34,10 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Added `JoinGroup`, `LeaveGroup`, and `SendToGroup` methods
 * Enabled sending messages to specific groups
 * Set default membership to the `General` group
+
+### Day 5
+
+* Added ASP.NET Core Identity
+* Implemented `SendToUser`
+* Enabled private messaging to specific users
+* Applied authorization to the Hub

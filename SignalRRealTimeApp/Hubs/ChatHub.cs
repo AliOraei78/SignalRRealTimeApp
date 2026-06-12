@@ -1,24 +1,33 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 
 namespace SignalRRealTimeApp.Hubs
 {
+    [Authorize]   // Only authenticated users can access this hub
     public class ChatHub : Hub
     {
         private static readonly ConcurrentDictionary<string, string> ConnectedUsers = new();
 
+        private readonly UserManager<IdentityUser> _userManager;
+
+        public ChatHub(UserManager<IdentityUser> userManager)
+        {
+            _userManager = userManager;
+        }
+
         public override async Task OnConnectedAsync()
         {
+            var user = await _userManager.GetUserAsync(Context.User);
+            string userName = user?.UserName ?? "Anonymous";
             string connectionId = Context.ConnectionId;
-            string? userName = Context.GetHttpContext()?.Request.Query["user"]
-                              ?? $"User_{connectionId.Substring(0, 5)}";
 
             ConnectedUsers[connectionId] = userName;
 
-            // Automatically join default group "General"
             await Groups.AddToGroupAsync(connectionId, "General");
 
-            await Clients.All.SendAsync("UserConnected", userName, connectionId);
+            await Clients.All.SendAsync("UserConnected", userName);
 
             await base.OnConnectedAsync();
         }
@@ -29,56 +38,41 @@ namespace SignalRRealTimeApp.Hubs
 
             if (ConnectedUsers.TryRemove(connectionId, out string? userName))
             {
-                await Clients.All.SendAsync("UserDisconnected", userName, connectionId);
+                await Clients.All.SendAsync("UserDisconnected", userName);
             }
 
             await base.OnDisconnectedAsync(exception);
         }
 
-        // New method: join group
-        public async Task JoinGroup(string groupName)
+        // Send message to a specific user
+        public async Task SendToUser(string targetUserName, string message)
         {
-            string userName = ConnectedUsers[Context.ConnectionId];
+            var targetUser = await _userManager.FindByNameAsync(targetUserName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+            if (targetUser != null)
+            {
+                var sender = await _userManager.GetUserAsync(Context.User);
 
-            await Clients.Group(groupName).SendAsync(
-                "ReceiveSystemMessage",
-                "System",
-                $"{userName} joined group {groupName}.");
+                await Clients.User(targetUser.Id)
+                    .SendAsync("ReceivePrivateMessage", sender?.UserName, message);
+            }
         }
 
-        // New method: leave group
-        public async Task LeaveGroup(string groupName)
+        // Existing methods (simplified)
+
+        public async Task SendMessage(string message)
         {
-            string userName = ConnectedUsers[Context.ConnectionId];
+            var user = await _userManager.GetUserAsync(Context.User);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-
-            await Clients.Group(groupName).SendAsync(
-                "ReceiveSystemMessage",
-                "System",
-                $"{userName} left group {groupName}.");
+            await Clients.All.SendAsync("ReceiveMessage", user?.UserName, message);
         }
 
-        // New method: send message to a specific group
         public async Task SendToGroup(string groupName, string message)
         {
-            string userName = ConnectedUsers[Context.ConnectionId];
+            var user = await _userManager.GetUserAsync(Context.User);
 
-            await Clients.Group(groupName).SendAsync("ReceiveMessage", userName, message);
-        }
-
-        // Existing compatibility methods
-        public async Task SendMessage(string user, string message)
-        {
-            await Clients.All.SendAsync("ReceiveMessage", user, message);
-        }
-
-        public async Task GetOnlineUsers()
-        {
-            var users = ConnectedUsers.Values.ToList();
-            await Clients.Caller.SendAsync("ReceiveOnlineUsers", users);
+            await Clients.Group(groupName)
+                .SendAsync("ReceiveMessage", user?.UserName, message);
         }
     }
 }
