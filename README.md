@@ -41,3 +41,9 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Implemented `SendToUser`
 * Enabled private messaging to specific users
 * Applied authorization to the Hub
+
+### Day 6
+
+* Implemented Strongly Typed Hubs using the `IChatClient` interface
+* Improved type safety in server–client communication
+* Refactored Hub methods

@@ -2,7 +2,7 @@
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<IdentityUser> SignInManager
 
-<h2>SignalR Chat Demo - Day 5 (Send to Specific User)</h2>
+<h2>SignalR Chat Demo - Day 6 (Strongly Typed Hub)</h2>
 
 @if (SignInManager.IsSignedIn(User))
 {
@@ -10,23 +10,22 @@
 }
 else
 {
-    <p>
-        <a href="/Identity/Account/Login">Login</a> |
-        <a href="/Identity/Account/Register">Register</a>
-    </p>
+    <p><a href="/Identity/Account/Login">Login</a> | <a href="/Identity/Account/Register">Register</a></p>
 }
 
 <div>
+    <input id="messageInput" placeholder="Type your message" />
+    <button onclick="sendMessage()">Send to everyone</button>
+    <button onclick="sendToUser()">Send to specific user</button>
+</div>
+
+<div>
     <input id="targetUser" placeholder="Target username" />
-    <input id="messageInput" placeholder="Message" />
-    <button onclick="sendToUser()">Send to User</button>
-    <button onclick="sendToAll()">Send to All</button>
 </div>
 
 <ul id="messagesList"></ul>
 
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
-
 <script>
     let connection;
 
@@ -35,18 +34,36 @@ else
     .withUrl("/chatHub")
     .build();
 
+    // Strongly typed hub methods
     connection.on("ReceiveMessage", (user, message) => {
     addMessage(`${user}: ${message}`, "blue");
     });
 
     connection.on("ReceivePrivateMessage", (sender, message) => {
-    addMessage(`📩 From ${sender}: ${message}`, "green");
+    addMessage(`📩 from ${sender}: ${message}`, "green");
+    });
+
+    connection.on("UserConnected", (userName) => {
+    addMessage(`✅ ${userName} joined`, "green");
+    });
+
+    connection.on("UserDisconnected", (userName) => {
+    addMessage(`❌ ${userName} left`, "red");
     });
 
     try {
     await connection.start();
+    console.log("Strongly typed hub connected");
     } catch (err) {
     console.error(err);
+    }
+    }
+
+    async function sendMessage() {
+    const message = document.getElementById("messageInput").value;
+    if (message && connection) {
+    await connection.invoke("SendMessage", message);
+    document.getElementById("messageInput").value = "";
     }
     }
 
@@ -56,15 +73,6 @@ else
 
     if (target && message && connection) {
     await connection.invoke("SendToUser", target, message);
-    document.getElementById("messageInput").value = "";
-    }
-    }
-
-    async function sendToAll() {
-    const message = document.getElementById("messageInput").value;
-
-    if (message && connection) {
-    await connection.invoke("SendMessage", message);
     document.getElementById("messageInput").value = "";
     }
     }
