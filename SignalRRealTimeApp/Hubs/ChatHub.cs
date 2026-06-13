@@ -98,20 +98,55 @@ namespace SignalRRealTimeApp.Hubs
             return $"Echo from {user?.UserName ?? "Anonymous"}: {message}";
         }
 
-        public async IAsyncEnumerable<string> StreamMessages(int count)
-        {
-            for (int i = 1; i <= count; i++)
-            {
-                await Task.Delay(800); // simulated delay
-                yield return $"Message {i} from server (Streaming)";
-            }
-        }
-
         // This method can now be called by your Console App
         [AllowAnonymous]
         public async Task SendMessageFromClient(string user, string message)
         {
             await Clients.All.ReceiveMessage(user ?? "ConsoleClient", message);
+        }
+
+        // Streaming with IAsyncEnumerable
+        public async IAsyncEnumerable<string> StreamMessages(
+            int count,
+            CancellationToken cancellationToken = default)
+        {
+            for (int i = 1; i <= count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await Task.Delay(700); // Simulate delay
+
+                yield return $"Streaming message #{i} at {DateTime.Now:HH:mm:ss}";
+            }
+        }
+
+        // Progress Reporting
+        public async Task StartLongOperation(int steps)
+        {
+            var user = await _userManager.GetUserAsync(Context.User);
+
+            var progress = new Progress<int>(p =>
+            {
+                // Send progress updates to the caller
+                Clients.Caller.ReceiveProgress($"Operation in progress: {p}%").Wait();
+            });
+
+            await PerformLongOperation(steps, progress);
+
+            await Clients.Caller.ReceiveSystemMessage(
+                "System",
+                "The operation completed successfully."
+            );
+        }
+
+        private async Task PerformLongOperation(int steps, IProgress<int> progress)
+        {
+            for (int i = 1; i <= steps; i++)
+            {
+                await Task.Delay(600);
+
+                progress.Report((i * 100) / steps);
+            }
         }
     }
 }

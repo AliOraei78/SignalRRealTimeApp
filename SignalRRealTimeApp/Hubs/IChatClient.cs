@@ -8,5 +8,6 @@
         Task UserConnected(string userName);
         Task UserDisconnected(string userName);
         Task ReceiveOnlineUsers(List<string> users);
+        Task ReceiveProgress(string progressMessage);
     }
 }

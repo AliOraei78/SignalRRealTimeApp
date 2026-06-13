@@ -67,3 +67,9 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Created a .NET Console Client
 * Resolved the 401 Unauthorized error by testing with the `AllowAnonymous` attribute
 * Performed bidirectional testing between the browser and the console application
+
+### Day 10
+
+* Implemented Streaming using `IAsyncEnumerable`
+* Implemented Progress Reporting using `IProgress<T>`
+* Sent continuous data streams and real-time operation progress updates to clients via SignalR

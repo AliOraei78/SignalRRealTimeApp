@@ -3,34 +3,26 @@
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
 
-<h2>SignalR Chat Demo - Day 8 (Advanced Authorization)</h2>
+<h2>SignalR Chat Demo - Day 10 (Streaming and Progress Reporting)</h2>
 
 @if (SignInManager.IsSignedIn(User))
 {
     <p>Welcome, <strong>@User.Identity?.Name</strong></p>
 }
-else
-{
-    <p><a href="/Identity/Account/Login">Login</a> | <a href="/Identity/Account/Register">Register</a></p>
-}
 
 <div>
     <strong>Connection Status:</strong>
-    <span id="connectionStatus" style="font-weight:bold; color:orange;">Connecting...</span>
+    <span id="connectionStatus" style="font-weight:bold;">Connecting...</span>
 </div>
 
 <div>
-    <input id="messageInput" placeholder="Type your message" />
-    <button onclick="sendMessage()">Send to everyone</button>
-    <button onclick="sendToUser()">Send private message</button>
-    <button onclick="sendAdminAnnouncement()">Admin announcement (Admin only)</button>
+    <input id="messageInput" placeholder="Message" />
+    <button onclick="sendMessage()">Send to All</button>
+    <button onclick="startStreaming()">Start Streaming</button>
+    <button onclick="startLongOperation()">Start Long Operation (Progress)</button>
 </div>
 
-<div>
-    <input id="targetUser" placeholder="Target username" />
-</div>
-
-<h3>Messages:</h3>
+<h3>Messages and Progress Reports:</h3>
 <ul id="messagesList"></ul>
 
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
@@ -45,74 +37,72 @@ else
     .withAutomaticReconnect()
     .build();
 
-    connection.on("ReceiveMessage", (user, message) =>
-    addMessage(`${user}: ${message}`, "blue")
-    );
+    connection.on("ReceiveMessage",
+    (user, message) => addMessage(`${user}: ${message}`, "blue"));
 
-    connection.on("ReceivePrivateMessage", (sender, message) =>
-    addMessage(`📩 from ${sender}: ${message}`, "green")
-    );
+    connection.on("ReceiveSystemMessage",
+    (user, message) => addMessage(`[${user}] ${message}`, "red"));
 
-    connection.on("ReceiveSystemMessage", (user, message) =>
-    addMessage(`[${user}] ${message}`, "red")
-    );
-
-    connection.on("UserConnected", (userName) =>
-    addMessage(`✅ ${userName} joined`, "green")
-    );
-
-    connection.on("UserDisconnected", (userName) =>
-    addMessage(`❌ ${userName} left`, "red")
-    );
+    connection.on("ReceiveProgress",
+    (progressMsg) => addMessage(`📊 ${progressMsg}`, "purple"));
 
     try {
     await connection.start();
+
     status.textContent = "Connected";
     status.style.color = "green";
-    } catch (err) {
-    console.error("Connection Error:", err);
-    status.textContent = "Connection failed";
+    }
+    catch (err) {
+    console.error(err);
+
+    status.textContent = "Error";
     status.style.color = "red";
     }
     }
 
     function addMessage(text, color) {
     const li = document.createElement("li");
+
     li.textContent = text;
     li.style.color = color;
+
     document.getElementById("messagesList").appendChild(li);
     }
 
     async function sendMessage() {
     const message = document.getElementById("messageInput").value;
+
     if (message && connection) {
     await connection.invoke("SendMessage", message);
     document.getElementById("messageInput").value = "";
     }
     }
 
-    async function sendToUser() {
-    const target = document.getElementById("targetUser").value;
-    const message = document.getElementById("messageInput").value;
-
-    if (target && message && connection) {
-    await connection.invoke("SendToUser", target, message);
-    document.getElementById("messageInput").value = "";
-    }
-    }
-
-    // New admin announcement function
-    async function sendAdminAnnouncement() {
-    const message = document.getElementById("messageInput").value || "Important announcement!";
-
+    async function startStreaming() {
     if (!connection) return;
 
     try {
-    await connection.invoke("SendAdminAnnouncement", message);
-    document.getElementById("messageInput").value = "";
-    } catch (err) {
-    console.error("Admin Announcement Error:", err);
-    alert("Error: Only admin users are allowed to send announcements.");
+    const stream = connection.stream("StreamMessages", 10);
+
+    stream.subscribe({
+    next: (item) => addMessage(`📡 ${item}`, "orange"),
+    complete: () => addMessage("✅ Streaming completed", "green"),
+    error: (err) => addMessage("❌ Streaming error", "red")
+    });
+    }
+    catch (err) {
+    console.error(err);
+    }
+    }
+
+    async function startLongOperation() {
+    if (!connection) return;
+
+    try {
+    await connection.invoke("StartLongOperation", 10); // 10 steps
+    }
+    catch (err) {
+    console.error(err);
     }
     }
 
