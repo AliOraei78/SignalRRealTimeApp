@@ -17,43 +17,32 @@ namespace SignalRRealTimeApp.Hubs
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<ChatHub> _logger;
 
-        public ChatHub(UserManager<IdentityUser> userManager,
-                               RoleManager<IdentityRole> roleManager,
-                               ILogger<ChatHub> logger)       
+        public ChatHub(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, ILogger<ChatHub> logger)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _logger = logger;
         }
 
-
         public override async Task OnConnectedAsync()
         {
             try
             {
                 var user = await _userManager.GetUserAsync(Context.User);
-
                 string userName = user?.UserName ?? "Anonymous";
                 string connectionId = Context.ConnectionId;
 
                 ConnectedUsers[connectionId] = userName;
-
                 await Groups.AddToGroupAsync(connectionId, "General");
 
-                _logger.LogInformation(
-                    "User {UserName} connected with ID {ConnectionId}",
-                    userName,
-                    connectionId);
+                _logger.LogInformation("User {UserName} connected", userName);
 
                 await Clients.All.UserConnected(userName);
+                await Clients.Caller.ReceiveSystemMessage("System", "Welcome to the chat!");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in OnConnectedAsync");
-
-                await Clients.Caller.ReceiveSystemMessage(
-                    "System",
-                    "An error occurred while connecting.");
+                _logger.LogError(ex, "OnConnectedAsync Error");
             }
 
             await base.OnConnectedAsync();

@@ -3,107 +3,153 @@
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
 
-<h2>SignalR Chat Demo - Day 11 (Error Handling & Logging)</h2>
+<h2>SignalRRealTimeApp - Final Dashboard</h2>
 
 @if (SignInManager.IsSignedIn(User))
 {
     <p>Welcome, <strong>@User.Identity?.Name</strong></p>
 }
+else
+{
+    <p>
+        <a href="/Identity/Account/Login">Login</a> |
+        <a href="/Identity/Account/Register">Register</a>
+    </p>
+}
 
-<div>
-    <strong>Connection Status:</strong>
-    <span id="connectionStatus" style="font-weight:bold; color:orange;">Connecting...</span>
+<div style="display:flex; gap:20px; margin-top:20px;">
+
+    <!-- Chat Section -->
+    <div style="flex:2; border:1px solid #ccc; padding:15px; border-radius:8px;">
+        <h3>Live Chat</h3>
+
+        <div>
+            <input id="messageInput" placeholder="Enter your message" style="width:70%" />
+            <button onclick="sendMessage()">Send</button>
+            <button onclick="sendAdminAnnouncement()">Admin Announcement</button>
+        </div>
+
+        <h4>Messages</h4>
+        <ul id="messagesList" style="height:400px; overflow-y:auto; list-style:none; padding:0;"></ul>
+    </div>
+
+    <!-- Dashboard / Notifications -->
+    <div style="flex:1; border:1px solid #ccc; padding:15px; border-radius:8px;">
+        <h3>Dashboard</h3>
+
+        <button onclick="startStreaming()">Start Streaming</button>
+        <button onclick="startLongOperation()">Long Operation</button>
+        <button onclick="getOnlineUsers()">Online Users</button>
+
+        <h4>Online Users</h4>
+        <ul id="onlineUsersList"></ul>
+
+        <h4>Notifications</h4>
+        <ul id="notificationsList" style="height:300px; overflow-y:auto;"></ul>
+    </div>
 </div>
-
-<div>
-    <input id="messageInput" placeholder="Enter your message" />
-    <button onclick="sendMessage()">Send to All</button>
-    <button onclick="sendAdminAnnouncement()">Admin Announcement</button>
-    <button onclick="testScaling()">Test Scaling (Multiple Servers)</button>
-</div>
-
-<h3>Messages:</h3>
-<ul id="messagesList"></ul>
 
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
+
 <script>
     let connection;
 
     async function startConnection() {
-    const status = document.getElementById("connectionStatus");
-
     connection = new signalR.HubConnectionBuilder()
     .withUrl("/chatHub")
     .withAutomaticReconnect()
     .build();
 
-    // Receive normal messages
-    connection.on("ReceiveMessage", (user, message) =>
-    addMessage(`${user}: ${message}`, "blue"));
+    connection.on("ReceiveMessage", (user, msg) =>
+    addMessage(`${user}: ${msg}`, "blue"));
 
-    // Receive system messages and errors
-    connection.on("ReceiveSystemMessage", (user, message) =>
-    addMessage(`[${user}] ${message}`, "red"));
+    connection.on("ReceivePrivateMessage", (sender, msg) =>
+    addMessage(`📩 From ${sender}: ${msg}`, "green"));
 
-    // Receive progress updates
+    connection.on("ReceiveSystemMessage", (user, msg) =>
+    addMessage(`[${user}] ${msg}`, "red"));
+
+    connection.on("UserConnected", (name) =>
+    addMessage(`✅ ${name} joined`, "green"));
+
+    connection.on("UserDisconnected", (name) =>
+    addMessage(`❌ ${name} left`, "red"));
+
     connection.on("ReceiveProgress", (msg) =>
-    addMessage(`📊 ${msg}`, "purple"));
+    addNotification(`📊 ${msg}`, "purple"));
+
+    connection.on("ReceiveOnlineUsers", (users) => {
+    const list = document.getElementById("onlineUsersList");
+    list.innerHTML = "";
+
+    users.forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u;
+    list.appendChild(li);
+    });
+    });
 
     try {
     await connection.start();
-
-    status.textContent = "Connected";
-    status.style.color = "green";
-    }
-    catch (err) {
+    console.log("Final connection established");
+    } catch (err) {
     console.error(err);
-
-    status.textContent = "Connection Error";
-    status.style.color = "red";
     }
     }
 
     function addMessage(text, color) {
     const li = document.createElement("li");
-
     li.textContent = text;
     li.style.color = color;
 
     document.getElementById("messagesList").appendChild(li);
+    li.scrollIntoView();
     }
 
-    async function testScaling() {
-    if (connection) {
-    await connection.invoke("SendMessage", "This message was sent to test scaling across multiple servers");
-    }
+    function addNotification(text, color) {
+    const li = document.createElement("li");
+    li.textContent = text;
+    li.style.color = color;
+
+    document.getElementById("notificationsList").appendChild(li);
     }
 
     async function sendMessage() {
-    const message = document.getElementById("messageInput").value;
+    const msg = document.getElementById("messageInput").value;
 
-    if (connection) {
-    try {
-    await connection.invoke("SendMessage", message);
+    if (msg && connection) {
+    await connection.invoke("SendMessage", msg);
     document.getElementById("messageInput").value = "";
-    }
-    catch (err) {
-    console.error(err);
-    }
     }
     }
 
     async function sendAdminAnnouncement() {
-    const message = document.getElementById("messageInput").value || "Important announcement";
+    const msg = document.getElementById("messageInput").value || "Important announcement";
 
     if (connection) {
-    try {
-    await connection.invoke("SendAdminAnnouncement", message);
-    document.getElementById("messageInput").value = "";
-    }
-    catch (err) {
-    console.error(err);
+    await connection.invoke("SendAdminAnnouncement", msg);
     }
     }
+
+    async function startStreaming() {
+    if (!connection) return;
+
+    const stream = connection.stream("StreamMessages", 8);
+
+    stream.subscribe({
+    next: item => addNotification(`📡 ${item}`, "orange"),
+    complete: () => addNotification("Streaming completed", "green")
+    });
+    }
+
+    async function startLongOperation() {
+    if (connection)
+    await connection.invoke("StartLongOperation", 8);
+    }
+
+    async function getOnlineUsers() {
+    if (connection)
+    await connection.invoke("GetOnlineUsers");
     }
 
     window.onload = startConnection;

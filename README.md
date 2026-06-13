@@ -87,3 +87,7 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Enabled support for running multiple instances simultaneously
 * Configured StackExchangeRedis
 * Performed real-world scalability testing
+
+### Day 13
+
+* Implemented a full demo application with dashboard
