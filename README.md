@@ -73,3 +73,17 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Implemented Streaming using `IAsyncEnumerable`
 * Implemented Progress Reporting using `IProgress<T>`
 * Sent continuous data streams and real-time operation progress updates to clients via SignalR
+
+### Day 11
+
+* Centralized error handling in the Hub
+* Implemented professional logging using `ILogger`
+* Applied SignalR best practices (exception handling, logging, input validation)
+* Improved user-friendly error management
+
+### Day 12
+
+* Implemented Redis Backplane for scaling
+* Enabled support for running multiple instances simultaneously
+* Configured StackExchangeRedis
+* Performed real-world scalability testing

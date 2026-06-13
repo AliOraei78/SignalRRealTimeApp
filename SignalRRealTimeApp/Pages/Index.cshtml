@@ -19,6 +19,7 @@
     <input id="messageInput" placeholder="Enter your message" />
     <button onclick="sendMessage()">Send to All</button>
     <button onclick="sendAdminAnnouncement()">Admin Announcement</button>
+    <button onclick="testScaling()">Test Scaling (Multiple Servers)</button>
 </div>
 
 <h3>Messages:</h3>
@@ -69,6 +70,12 @@
     li.style.color = color;
 
     document.getElementById("messagesList").appendChild(li);
+    }
+
+    async function testScaling() {
+    if (connection) {
+    await connection.invoke("SendMessage", "This message was sent to test scaling across multiple servers");
+    }
     }
 
     async function sendMessage() {

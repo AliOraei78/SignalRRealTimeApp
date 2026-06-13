@@ -34,6 +34,12 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
 });
 
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis("localhost:6379", options =>
+    {
+        options.Configuration.ChannelPrefix = "SignalRRealTimeApp";
+    });
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
