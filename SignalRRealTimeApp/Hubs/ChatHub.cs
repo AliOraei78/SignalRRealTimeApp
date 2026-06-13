@@ -1,7 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace SignalRRealTimeApp.Hubs
 {
@@ -11,24 +15,47 @@ namespace SignalRRealTimeApp.Hubs
         private static readonly ConcurrentDictionary<string, string> ConnectedUsers = new();
         private readonly UserManager<IdentityUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly ILogger<ChatHub> _logger;
 
-        public ChatHub(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
+        public ChatHub(UserManager<IdentityUser> userManager,
+                               RoleManager<IdentityRole> roleManager,
+                               ILogger<ChatHub> logger)       
         {
             _userManager = userManager;
             _roleManager = roleManager;
+            _logger = logger;
         }
+
 
         public override async Task OnConnectedAsync()
         {
-            // This will now safely handle both logged-in and anonymous users
-            var user = await _userManager.GetUserAsync(Context.User);
-            string userName = user?.UserName ?? "Anonymous";
-            string connectionId = Context.ConnectionId;
+            try
+            {
+                var user = await _userManager.GetUserAsync(Context.User);
 
-            ConnectedUsers[connectionId] = userName;
-            await Groups.AddToGroupAsync(connectionId, "General");
+                string userName = user?.UserName ?? "Anonymous";
+                string connectionId = Context.ConnectionId;
 
-            await Clients.All.UserConnected(userName);
+                ConnectedUsers[connectionId] = userName;
+
+                await Groups.AddToGroupAsync(connectionId, "General");
+
+                _logger.LogInformation(
+                    "User {UserName} connected with ID {ConnectionId}",
+                    userName,
+                    connectionId);
+
+                await Clients.All.UserConnected(userName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in OnConnectedAsync");
+
+                await Clients.Caller.ReceiveSystemMessage(
+                    "System",
+                    "An error occurred while connecting.");
+            }
+
             await base.OnConnectedAsync();
         }
 
@@ -44,10 +71,32 @@ namespace SignalRRealTimeApp.Hubs
 
         // Add [Authorize] to specific methods that require login
         [Authorize]
+        // Example of error handling in a hub method
         public async Task SendMessage(string message)
         {
-            var user = await _userManager.GetUserAsync(Context.User);
-            await Clients.All.ReceiveMessage(user?.UserName ?? "Anonymous", message);
+            try
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                    throw new ArgumentException("Message cannot be empty.");
+
+                var user = await _userManager.GetUserAsync(Context.User);
+
+                await Clients.All.ReceiveMessage(
+                    user?.UserName ?? "Anonymous",
+                    message);
+
+                _logger.LogInformation(
+                    "Message sent by {User}",
+                    user?.UserName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending message");
+
+                await Clients.Caller.ReceiveSystemMessage(
+                    "System",
+                    $"Error: {ex.Message}");
+            }
         }
 
         [Authorize(Roles = "Admin")]

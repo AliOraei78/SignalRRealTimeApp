@@ -3,7 +3,7 @@
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
 
-<h2>SignalR Chat Demo - Day 10 (Streaming and Progress Reporting)</h2>
+<h2>SignalR Chat Demo - Day 11 (Error Handling & Logging)</h2>
 
 @if (SignInManager.IsSignedIn(User))
 {
@@ -12,17 +12,16 @@
 
 <div>
     <strong>Connection Status:</strong>
-    <span id="connectionStatus" style="font-weight:bold;">Connecting...</span>
+    <span id="connectionStatus" style="font-weight:bold; color:orange;">Connecting...</span>
 </div>
 
 <div>
-    <input id="messageInput" placeholder="Message" />
+    <input id="messageInput" placeholder="Enter your message" />
     <button onclick="sendMessage()">Send to All</button>
-    <button onclick="startStreaming()">Start Streaming</button>
-    <button onclick="startLongOperation()">Start Long Operation (Progress)</button>
+    <button onclick="sendAdminAnnouncement()">Admin Announcement</button>
 </div>
 
-<h3>Messages and Progress Reports:</h3>
+<h3>Messages:</h3>
 <ul id="messagesList"></ul>
 
 <script src="~/js/signalr/dist/browser/signalr.js"></script>
@@ -37,14 +36,17 @@
     .withAutomaticReconnect()
     .build();
 
-    connection.on("ReceiveMessage",
-    (user, message) => addMessage(`${user}: ${message}`, "blue"));
+    // Receive normal messages
+    connection.on("ReceiveMessage", (user, message) =>
+    addMessage(`${user}: ${message}`, "blue"));
 
-    connection.on("ReceiveSystemMessage",
-    (user, message) => addMessage(`[${user}] ${message}`, "red"));
+    // Receive system messages and errors
+    connection.on("ReceiveSystemMessage", (user, message) =>
+    addMessage(`[${user}] ${message}`, "red"));
 
-    connection.on("ReceiveProgress",
-    (progressMsg) => addMessage(`📊 ${progressMsg}`, "purple"));
+    // Receive progress updates
+    connection.on("ReceiveProgress", (msg) =>
+    addMessage(`📊 ${msg}`, "purple"));
 
     try {
     await connection.start();
@@ -55,7 +57,7 @@
     catch (err) {
     console.error(err);
 
-    status.textContent = "Error";
+    status.textContent = "Connection Error";
     status.style.color = "red";
     }
     }
@@ -72,37 +74,28 @@
     async function sendMessage() {
     const message = document.getElementById("messageInput").value;
 
-    if (message && connection) {
+    if (connection) {
+    try {
     await connection.invoke("SendMessage", message);
     document.getElementById("messageInput").value = "";
     }
-    }
-
-    async function startStreaming() {
-    if (!connection) return;
-
-    try {
-    const stream = connection.stream("StreamMessages", 10);
-
-    stream.subscribe({
-    next: (item) => addMessage(`📡 ${item}`, "orange"),
-    complete: () => addMessage("✅ Streaming completed", "green"),
-    error: (err) => addMessage("❌ Streaming error", "red")
-    });
-    }
     catch (err) {
     console.error(err);
     }
     }
+    }
 
-    async function startLongOperation() {
-    if (!connection) return;
+    async function sendAdminAnnouncement() {
+    const message = document.getElementById("messageInput").value || "Important announcement";
 
+    if (connection) {
     try {
-    await connection.invoke("StartLongOperation", 10); // 10 steps
+    await connection.invoke("SendAdminAnnouncement", message);
+    document.getElementById("messageInput").value = "";
     }
     catch (err) {
     console.error(err);
+    }
     }
     }
 
