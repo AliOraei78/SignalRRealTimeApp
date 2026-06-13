@@ -2,5 +2,6 @@
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
   </Folder>
+  <Project Path="SignalRClientTest/SignalRClientTest.csproj" Id="cbcf8d58-0318-4838-a184-cbc405ce95df" />
   <Project Path="SignalRRealTimeApp/SignalRRealTimeApp.csproj" />
 </Solution>

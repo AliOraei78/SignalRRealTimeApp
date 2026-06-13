@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 
 namespace SignalRRealTimeApp.Hubs
 {
-    [Authorize]
+    // Remove [Authorize] from the class level
     public class ChatHub : Hub<IChatClient>
     {
         private static readonly ConcurrentDictionary<string, string> ConnectedUsers = new();
@@ -20,6 +20,7 @@ namespace SignalRRealTimeApp.Hubs
 
         public override async Task OnConnectedAsync()
         {
+            // This will now safely handle both logged-in and anonymous users
             var user = await _userManager.GetUserAsync(Context.User);
             string userName = user?.UserName ?? "Anonymous";
             string connectionId = Context.ConnectionId;
@@ -41,7 +42,7 @@ namespace SignalRRealTimeApp.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        // Method for regular authenticated users
+        // Add [Authorize] to specific methods that require login
         [Authorize]
         public async Task SendMessage(string message)
         {
@@ -49,7 +50,6 @@ namespace SignalRRealTimeApp.Hubs
             await Clients.All.ReceiveMessage(user?.UserName ?? "Anonymous", message);
         }
 
-        // Method only for admins
         [Authorize(Roles = "Admin")]
         public async Task SendAdminAnnouncement(string message)
         {
@@ -57,7 +57,6 @@ namespace SignalRRealTimeApp.Hubs
             await Clients.All.ReceiveSystemMessage("Admin", $"Important announcement: {message}");
         }
 
-        // Method protected by policy
         [Authorize(Policy = "AdminOnly")]
         public async Task AdminOnlyMethod()
         {
@@ -67,7 +66,7 @@ namespace SignalRRealTimeApp.Hubs
             );
         }
 
-        // Other methods (SendToUser, SendToGroup, EchoMessage, StreamMessages) remain unchanged
+        [Authorize]
         public async Task SendToUser(string targetUserName, string message)
         {
             var targetUser = await _userManager.FindByNameAsync(targetUserName);
@@ -79,7 +78,7 @@ namespace SignalRRealTimeApp.Hubs
             }
         }
 
-        // Send to group
+        [Authorize]
         public async Task SendToGroup(string groupName, string message)
         {
             var user = await _userManager.GetUserAsync(Context.User);
@@ -93,14 +92,12 @@ namespace SignalRRealTimeApp.Hubs
             await Clients.Caller.ReceiveOnlineUsers(users);
         }
 
-        // New method: return value to the client
         public async Task<string> EchoMessage(string message)
         {
             var user = await _userManager.GetUserAsync(Context.User);
-            return $"Echo from {user?.UserName}: {message}";
+            return $"Echo from {user?.UserName ?? "Anonymous"}: {message}";
         }
 
-        // New method: Streaming (sending continuous messages)
         public async IAsyncEnumerable<string> StreamMessages(int count)
         {
             for (int i = 1; i <= count; i++)
@@ -108,6 +105,13 @@ namespace SignalRRealTimeApp.Hubs
                 await Task.Delay(800); // simulated delay
                 yield return $"Message {i} from server (Streaming)";
             }
+        }
+
+        // This method can now be called by your Console App
+        [AllowAnonymous]
+        public async Task SendMessageFromClient(string user, string message)
+        {
+            await Clients.All.ReceiveMessage(user ?? "ConsoleClient", message);
         }
     }
 }

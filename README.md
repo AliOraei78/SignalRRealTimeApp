@@ -61,3 +61,9 @@ A sample SignalR project demonstrating real-time development skills in .NET
 * Advanced authorization using Roles
 * Admin user seeding
 * Client-side error fixes (sendAdminAnnouncement + connection handling)
+
+### Day 9
+
+* Created a .NET Console Client
+* Resolved the 401 Unauthorized error by testing with the `AllowAnonymous` attribute
+* Performed bidirectional testing between the browser and the console application
